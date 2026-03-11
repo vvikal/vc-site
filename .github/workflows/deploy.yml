@@ -1,0 +1,38 @@
+name: Build and Deploy Hugo Site
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Hugo
+        uses: peaceiris/actions-hugo@v3
+        with:
+          hugo-version: 'latest'
+          extended: true
+
+      - name: Build site
+        env:
+          HUGO_ENVIRONMENT: production
+          HUGO_ENV: production
+        run: hugo --gc --minify
+
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          printf "%s" "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H "${{ secrets.HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Deploy with rsync
+        run: |
+          rsync -avz --delete public/ "${{ secrets.USERNAME }}@${{ secrets.HOST }}:/var/www/vikalchoudhary-site/"
